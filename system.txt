@@ -1,0 +1,527 @@
+In Gradle File(app) 
+=================== 
+
+  buildFeatures {
+        viewBinding = true
+    }
+
+
+
+DBHelper Class
+--------------
+
+package com.example.sqlitecrud
+
+import android.content.ContentValues
+import android.content.Context
+import android.database.Cursor
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
+
+
+
+class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?):
+    SQLiteOpenHelper(context,DATABASE_NAME,factory,DATABASE_VERSION) {
+    override fun onCreate(db: SQLiteDatabase) {
+        val query = ("CREATE TABLE " + TABLE_NAME + " ("
+                + ID_COL + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                NAME_COL + " TEXT," +
+                EMAIL_COL + " TEXT," +
+                GENDER_COL + " TEXT," +
+                CITY_COL + " TEXT," +
+                COURSE_COL + " TEXT" +
+                ")")
+
+        db.execSQL(query)
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_NAME")
+        onCreate(db)
+    }
+
+    fun addData(name:String,email:String,gender:String,city:String,course:String)
+    {
+        val values = ContentValues()
+
+        values.put(NAME_COL,name)
+        values.put(EMAIL_COL,email)
+        values.put(GENDER_COL,gender)
+        values.put(CITY_COL,city)
+        values.put(COURSE_COL,course)
+
+        val db = this.writableDatabase
+
+        db.insert(TABLE_NAME,null,values)
+
+        db.close()
+    }
+
+    fun getData(): Cursor?
+    {
+        val db = this.readableDatabase
+
+        return db.rawQuery("SELECT * FROM $TABLE_NAME", null)
+    }
+
+    fun updateData(id:Int, name:String,email:String,gender:String,city:String,course:String)
+    {
+        val values = ContentValues()
+
+        values.put(NAME_COL,name)
+        values.put(EMAIL_COL,email)
+        values.put(GENDER_COL,gender)
+        values.put(CITY_COL,city)
+        values.put(COURSE_COL,course)
+
+        val db = this.writableDatabase
+
+        db.update(TABLE_NAME,values,"id=?", arrayOf(id.toString()))
+
+        db.close()
+    }
+
+    fun deleteAllData()
+    {
+        val db = this.writableDatabase
+
+        db.delete(TABLE_NAME,null,null)
+
+        db.close()
+    }
+
+    fun deleteByIdData(id:Int)
+    {
+        val db = this.writableDatabase
+
+        db.delete(TABLE_NAME,"id=?", arrayOf(id.toString()))
+
+        db.close()
+    }
+
+    companion object {
+        // below is variable for database name
+        private const val DATABASE_NAME = "DEMO_DB"
+
+        // below is the variable for database version
+        private const val DATABASE_VERSION = 1
+
+        private const val TABLE_NAME = "emp"
+        const val ID_COL = "id"
+        const val NAME_COL = "name"
+        const val EMAIL_COL = "email"
+        const val GENDER_COL = "gender"
+        const val CITY_COL = "city"
+        const val COURSE_COL = "course"
+    }
+}
+
+
+
+MainActivity.kt
+---------------
+
+package com.example.sqlitecrud
+
+import android.annotation.SuppressLint
+import android.os.Bundle
+import android.util.TypedValue
+import android.view.View
+import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
+import com.example.sqlitecrud.databinding.ActivityMainBinding
+class MainActivity : AppCompatActivity() {
+
+    @SuppressLint("Range")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        var binding: ActivityMainBinding = ActivityMainBinding.inflate(layoutInflater)
+
+        setContentView(binding.root)
+
+        var g :String? = null
+        var city :String? = null
+
+        binding.txtGender.setOnCheckedChangeListener { group, checkedId ->
+            g = if (R.id.male == checkedId) "Male" else "Female"
+        }
+
+        binding.spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                city = parent?.getItemAtPosition(position).toString()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                TODO("Not yet implemented")
+            }
+        }
+
+        fun getSubjects(subject1: CheckBox, subject2: CheckBox, subject3: CheckBox):String{
+            var subject = ""
+            if (subject1.isChecked){
+                subject += subject1.text.toString()
+            }
+            if (subject2.isChecked){
+                subject += ","+subject2.text.toString()
+            }
+            if (subject3.isChecked){
+                subject += ","+subject3.text.toString()
+            }
+            return subject
+        }
+
+        binding.btnSave.setOnClickListener {
+
+            val db = DBHelper(this, null)
+
+            val name = binding.txtName.text.toString()
+            val email = binding.txtEmail.text.toString()
+            val gender = g.toString()
+            val city = city.toString()
+            val course = getSubjects(binding.subject1,binding.subject2,binding.subject3)
+
+
+            db.addData(name, email, gender, city, course)
+
+            Toast.makeText(applicationContext,"Add Data in Database", Toast.LENGTH_LONG).show()
+
+            binding.txtName.text.clear()
+            binding.txtEmail.text.clear()
+            binding.txtGender.clearCheck()
+
+        }
+
+        binding.btnDisplay.setOnClickListener {
+            val db = DBHelper(this,null)
+
+            val cursor = db.getData()
+
+            if(cursor != null) {
+                if (cursor.moveToFirst())
+                {
+                    binding.addData.removeAllViews()
+                    do {
+                        var txtStudentsData: TextView = TextView(applicationContext)
+                        txtStudentsData.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20F)
+                        txtStudentsData.text = cursor.getString(cursor.getColumnIndex(DBHelper.ID_COL))+" " +
+                                cursor.getString(cursor.getColumnIndex(DBHelper.NAME_COL)) +" "+
+                                cursor.getString(cursor.getColumnIndex(DBHelper.EMAIL_COL)) +" "+
+                                cursor.getString(cursor.getColumnIndex(DBHelper.GENDER_COL)) +" "+
+                                cursor.getString(cursor.getColumnIndex(DBHelper.CITY_COL)) +" "+
+                                cursor.getString(cursor.getColumnIndex(DBHelper.COURSE_COL))
+
+                        binding.addData.addView(txtStudentsData)
+
+                    } while (cursor.moveToNext())
+                }
+
+                // at last we close our cursor
+                cursor.close()
+            }else {
+                Toast.makeText(applicationContext,"No Data Found", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        binding.btnUpdate.setOnClickListener {
+            val db = DBHelper(this,null)
+
+            val id = binding.txtSearch.text.toString().toInt()
+            val name = binding.txtName.text.toString()
+            val email = binding.txtEmail.text.toString()
+            val gender = g.toString()
+            val city = city.toString()
+            val course = getSubjects(binding.subject1,binding.subject2,binding.subject3)
+
+            db.updateData(id,name, email, gender, city, course)
+
+            val cursor = db.getData()
+
+            if(cursor != null) {
+                if (cursor.moveToFirst())
+                {
+                    binding.addData.removeAllViews()
+                    do {
+                        var txtStudentsData: TextView = TextView(applicationContext)
+                        txtStudentsData.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20F)
+                        txtStudentsData.text = cursor.getString(cursor.getColumnIndex(DBHelper.ID_COL))+", " +
+                                cursor.getString(cursor.getColumnIndex(DBHelper.NAME_COL)) +", "+
+                                cursor.getString(cursor.getColumnIndex(DBHelper.EMAIL_COL)) +", "+
+                                cursor.getString(cursor.getColumnIndex(DBHelper.GENDER_COL)) +", "+
+                                cursor.getString(cursor.getColumnIndex(DBHelper.CITY_COL)) +", "+
+                                cursor.getString(cursor.getColumnIndex(DBHelper.COURSE_COL))
+
+                        binding.addData.addView(txtStudentsData)
+
+                    } while (cursor.moveToNext())
+                }
+
+                // at last we close our cursor
+                cursor.close()
+            }else {
+                Toast.makeText(applicationContext,"No Data Found", Toast.LENGTH_LONG).show()
+            }
+
+        }
+
+        binding.btnDeleteAll.setOnClickListener {
+            val db = DBHelper(this,null)
+
+            db.deleteAllData()
+
+            Toast.makeText(applicationContext,"Data Deleted Successfully.", Toast.LENGTH_LONG).show()
+        }
+
+        binding.btnDeleteById.setOnClickListener {
+            val db = DBHelper(this,null)
+
+            val id = binding.txtSearch.text.toString().toInt()
+
+            db.deleteByIdData(id)
+
+        }
+    }
+}
+
+
+============================================================================================================
+One activity to another (Only single data)
+========================
+1st Activity
+
+import android.content.Intent 
+import android.os.Bundle 
+import android.widget.Button 
+import android.widget.EditText 
+import androidx.appcompat.app.AppCompatActivity 
+
+class first_activity : AppCompatActivity() { 
+	
+	// define the variable 
+	lateinit var send_button: Button 
+	lateinit var send_text: EditText 
+
+	override fun onCreate(savedInstanceState: Bundle?) { 
+		super.onCreate(savedInstanceState) 
+		setContentView(R.layout.activity_first_activity) 
+		
+		send_button = findViewById(R.id.send_button_id) 
+		send_text = findViewById(R.id.send_text_id) 
+
+		// add the OnClickListener in sender button after clicked this button following Instruction will run 
+		send_button.setOnClickListener { 
+			// get the value which input by user in EditText and convert it to string 
+			val str = send_text.text.toString() 
+			// Create the Intent object of this class Context() to Second_activity class 
+			val intent = Intent(applicationContext, Second_activity::class.java) 
+			// now by putExtra method put the value in key, value pair key is 
+			// message_key by this key we will receive the value, and put the string 
+			intent.putExtra("message_key", str) 
+			// start the Intent 
+			startActivity(intent) 
+		} 
+	} 
+}
+
+
+2nd Activity
+
+import android.os.Bundle 
+import android.widget.TextView 
+import androidx.appcompat.app.AppCompatActivity 
+
+class Second_activity : AppCompatActivity() { 
+	
+	lateinit var receiver_msg: TextView 
+
+	override fun onCreate(savedInstanceState: Bundle?) { 
+		super.onCreate(savedInstanceState) 
+		setContentView(R.layout.activity_second_activity) 
+		
+		receiver_msg = findViewById(R.id.received_value_id) 
+		// create the get Intent object 
+		val intent = intent 
+		// receive the value by getStringExtra() method and 
+		// key must be same which is send by first activity 
+		val str = intent.getStringExtra("message_key") 
+		// display the string into textView 
+		receiver_msg.text = str 
+	} 
+}
+
+
+
+=========================================================
+From the database on Display Button
+======================================================
+
+MainActivity.kt
+
+binding.btnShowData.setOnClickListener {
+            val db = DBHelper(this, null)
+            val cursor = db.getData()
+
+            try {
+                if (cursor != null) {
+                    if (cursor.moveToFirst()) {
+                        // Assuming you have a DisplayActivity to show the data
+                        val intent = Intent(this, DisplayActivity::class.java)
+
+                        // Create a Bundle to pass data to DisplayActivity
+                        val dataBundle = Bundle()
+
+                        // Iterate through the cursor and put data into the Bundle
+                        do {
+                            val userData = """
+                        ${cursor.getString(cursor.getColumnIndex(DBHelper.ID_COL))} 
+                        ${cursor.getString(cursor.getColumnIndex(DBHelper.NAME_COL))} 
+                        ${cursor.getString(cursor.getColumnIndex(DBHelper.EMAIL_COL))} 
+                        ${cursor.getString(cursor.getColumnIndex(DBHelper.GENDER_COL))} 
+                        ${cursor.getString(cursor.getColumnIndex(DBHelper.CITY_COL))} 
+                        ${cursor.getString(cursor.getColumnIndex(DBHelper.COURSE_COL))}
+                    """.trimIndent()
+
+                            // Add user data to the Bundle using a unique key
+                            dataBundle.putString("userData", userData)
+                        } while (cursor.moveToNext())
+
+                        // Close the cursor
+                        cursor.close()
+
+                        // Attach the Bundle to the Intent
+                        intent.putExtras(dataBundle)
+
+                        // Start the DisplayActivity
+                        startActivity(intent)
+                    } else {
+                        Toast.makeText(applicationContext, "No Data Found", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    Toast.makeText(applicationContext, "No Data Found", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(applicationContext, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+		
+		
+		
+
+
+DisplayActivity
+===============
+
+class DisplayActivity : AppCompatActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_display)
+
+        val textViewDisplay: TextView = findViewById(R.id.textViewDisplay)
+
+        try {
+            // Retrieve data from Intent
+            val dataBundle = intent.extras
+            val userData = dataBundle?.getString("userData")
+
+            // Display data in the TextView
+            if (userData != null) {
+                textViewDisplay.text = userData
+            } else {
+                textViewDisplay.text = "No data received from MainActivity"
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            textViewDisplay.text = "Error: ${e.message}"
+        }
+    }
+}
+
+=============================================
+Transfer Form data to next activity
+===================================
+
+MainActivity.kt
+
+
+package com.example.program9
+import android.content.Intent
+import androidx.appcompat.app.AppCompatActivity
+import android.os.Bundle
+import android.widget.Button
+import android.widget.CalendarView
+import android.widget.CheckBox
+import android.widget.EditText
+import android.widget.RadioGroup
+class MainActivity : AppCompatActivity() {
+override fun onCreate(savedInstanceState: Bundle?) {
+super.onCreate(savedInstanceState)
+setContentView(R.layout.activity_main)
+var g :String? = null
+var Date: String? = null
+var name = findViewById<EditText>(R.id.txtUsername)
+var address = findViewById<EditText>(R.id.txtAddress)
+var DOB = findViewById<CalendarView>(R.id.calendarView)
+var gender = findViewById<RadioGroup>(R.id.rdGroup)
+var hobbies1 = findViewById<CheckBox>(R.id.chkDance)
+var hobbies2 = findViewById<CheckBox>(R.id.chkTravel)
+var btnRegister = findViewById<Button>(R.id.btnSubmit)
+gender.setOnCheckedChangeListener { group, checkedId ->
+g = if (R.id.rdbMale == checkedId) "Male" else "Female"
+}
+
+DOB.setOnDateChangeListener(CalendarView.OnDateChangeListener { view, year, month, dayOfMonth ->
+Date = (dayOfMonth.toString() + "-" + (month + 1) + "-" + year)
+})
+fun getHobbies(hobbies1:CheckBox,hobbies2:CheckBox):String{
+var hobby = ""
+if (hobbies1.isChecked){
+hobby += hobbies1.text.toString()
+}
+if (hobbies2.isChecked){
+hobby += ","+hobbies2.text.toString()
+}
+return hobby
+}
+btnRegister.setOnClickListener {
+var intent = Intent(this,Redirect::class.java)
+intent.putExtra("name",name.text.toString())
+intent.putExtra("address",address.text.toString())
+intent.putExtra("DOB",Date)
+intent.putExtra("gender",g)
+intent.putExtra("hobby",getHobbies(hobbies1,hobbies2))
+startActivity(intent)
+}
+}
+}
+
+
+Redirect.kt
+
+package com.example.program9
+import androidx.appcompat.app.AppCompatActivity
+import android.os.Bundle
+import android.widget.TextView
+class Redirect : AppCompatActivity() {
+override fun onCreate(savedInstanceState: Bundle?) {
+super.onCreate(savedInstanceState)
+setContentView(R.layout.activity_redirect)
+var user = findViewById<TextView>(R.id.txtmyUsername)
+var address = findViewById<TextView>(R.id.txtmyAddress)
+var DOB = findViewById<TextView>(R.id.txtmyDOB)
+var gender = findViewById<TextView>(R.id.txtmyGender)
+var hobby = findViewById<TextView>(R.id.mychkDance)
+user.setText(intent.getStringExtra("name")).toString()
+address.setText(intent.getStringExtra("address")).toString()
+DOB.setText(intent.getStringExtra("DOB")).toString()
+gender.setText(intent.getStringExtra("gender")).toString()
+hobby.setText(intent.getStringExtra("hobby")).toString()
+}
+}
+
